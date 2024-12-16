@@ -1,0 +1,222 @@
+#include <SFML/Graphics.hpp>
+#include <vector>
+#include <iostream>
+#include <locale> 
+
+using namespace std;
+
+const int SIZE = 3; // Размер игрового поля 3x3
+const float CELL_SIZE = 100.0f; // Размер клетки
+
+// Класс для игрового поля
+class GameBoard {
+public:
+    GameBoard() : board(SIZE, vector<char>(SIZE, ' ')) {}
+
+    bool makeMove(int row, int col, char symbol) {
+        if (row >= 0 && row < SIZE && col >= 0 && col < SIZE && board[row][col] == ' ') {
+            board[row][col] = symbol;
+            return true;
+        }
+        return false;
+    }
+
+    char checkWinner() const {
+
+        for (int i = 0; i < SIZE; ++i) {
+            if (board[i][0] != ' ' && board[i][0] == board[i][1] && board[i][1] == board[i][2]) return board[i][0];
+            if (board[0][i] != ' ' && board[0][i] == board[1][i] && board[1][i] == board[2][i]) return board[0][i];
+        }
+        if (board[0][0] != ' ' && board[0][0] == board[1][1] && board[1][1] == board[2][2]) return board[0][0];
+        if (board[0][2] != ' ' && board[0][2] == board[1][1] && board[1][1] == board[2][0]) return board[0][2];
+        return ' ';
+    }
+
+    bool isFull() const {
+        for (int i = 0; i < SIZE; ++i)
+            for (int j = 0; j < SIZE; ++j)
+                if (board[i][j] == ' ') return false;
+        return true;
+    }
+
+    char getCell(int row, int col) const { return board[row][col]; }
+
+private:
+    vector<vector<char>> board;
+};
+
+// Класс для представления игрока
+class Player {
+public:
+    Player(const string& name, char symbol) : name(name), symbol(symbol) {}
+
+    char getSymbol() const { return symbol; }
+    const string& getName() const { return name; }
+
+private:
+    string name;
+    char symbol;
+};
+
+// Класс для управления игрой с графическим интерфейсом
+class TicTacToe {
+public:
+    TicTacToe() : window(sf::VideoMode(400, 300), "TicTacToe"),
+        players{ Player("Player 1", 'X'), Player("Player 2", 'O') }, currentPlayerIndex(0), gameStarted(false) {
+        if (!font.loadFromFile("arial.ttf")) {
+            cerr << "Ошибка загрузки шрифта!" << endl;
+        }
+    }
+
+    void run() {
+        while (window.isOpen()) {
+            if (!gameStarted) {
+                processMenuEvents();
+                renderMenu();
+            }
+            else {
+                processGameEvents();
+                renderGame();
+            }
+        }
+    }
+
+private:
+    sf::RenderWindow window;
+    GameBoard board;
+    vector<Player> players;
+    int currentPlayerIndex;
+    bool gameStarted;
+    char currentSymbol;
+    sf::Font font;
+
+    void processMenuEvents() {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed) {
+                window.close();
+            }
+
+            if (event.type == sf::Event::MouseButtonPressed) {
+                if (event.mouseButton.button == sf::Mouse::Left) {
+                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                    if (mousePos.x >= 50 && mousePos.x <= 150 && mousePos.y >= 100 && mousePos.y <= 200) {
+                        currentSymbol = 'X';
+                        gameStarted = true;
+                    }
+                    else if (mousePos.x >= 250 && mousePos.x <= 350 && mousePos.y >= 100 && mousePos.y <= 200) {
+                        currentSymbol = 'O';
+                        currentPlayerIndex = 1;
+                        gameStarted = true;
+                    }
+                }
+            }
+        }
+    }
+
+    void renderMenu() {
+        window.clear(sf::Color::White);
+
+        sf::Text title("Choose who goes first:", font, 30);
+        title.setFillColor(sf::Color::Black);
+        title.setPosition(50, 30);
+        window.draw(title);
+
+        sf::RectangleShape buttonX(sf::Vector2f(100, 100));
+        buttonX.setFillColor(sf::Color::Red);
+        buttonX.setPosition(50, 100);
+        window.draw(buttonX);
+
+        sf::RectangleShape buttonO(sf::Vector2f(100, 100));
+        buttonO.setFillColor(sf::Color::Blue);
+        buttonO.setPosition(250, 100);
+        window.draw(buttonO);
+
+        sf::Text cross("X", font, 80);
+        cross.setFillColor(sf::Color::White);
+        cross.setPosition(75, 100);
+        window.draw(cross);
+
+        sf::Text circle("O", font, 80);
+        circle.setFillColor(sf::Color::White);
+        circle.setPosition(275, 100);
+        window.draw(circle);
+
+        window.display();
+    }
+
+    void processGameEvents() {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed) window.close();
+
+            if (event.type == sf::Event::MouseButtonPressed) {
+                int row = event.mouseButton.y / CELL_SIZE;
+                int col = event.mouseButton.x / CELL_SIZE;
+
+               if (board.makeMove(row, col, currentSymbol)) {
+                    char winner = board.checkWinner();
+                    if (winner != ' ') {
+                        cout << players[currentPlayerIndex].getName() << " wins!" << endl;
+                        window.close();
+                    }
+                    else if (board.isFull()) {
+                        cout << "It's a draw!" << endl;
+                        window.close();
+                    }
+                    else {
+                        switchPlayer();
+                    }
+                }
+            }
+        }
+    }
+
+    void switchPlayer() {
+        currentPlayerIndex = 1 - currentPlayerIndex;
+        currentSymbol = players[currentPlayerIndex].getSymbol();
+    }
+
+    void renderGame() {
+        window.clear(sf::Color::White);
+
+        for (int i = 1; i < SIZE; ++i) {
+            sf::RectangleShape line(sf::Vector2f(SIZE * CELL_SIZE, 2));
+            line.setFillColor(sf::Color::Black);
+            line.setPosition(0, i * CELL_SIZE);
+            window.draw(line);
+
+            line.setSize(sf::Vector2f(2, SIZE * CELL_SIZE));
+            line.setPosition(i * CELL_SIZE, 0);
+            window.draw(line);
+        }
+
+        for (int i = 0; i < SIZE; ++i) {
+            for (int j = 0; j < SIZE; ++j) {
+                char cell = board.getCell(i, j);
+                if (cell == 'X') {
+                    sf::Text cross("X", font, 80);
+                    cross.setFillColor(sf::Color::Red);
+                    cross.setPosition(j * CELL_SIZE + 10, i * CELL_SIZE - 10);
+                    window.draw(cross);
+                }
+                else if (cell == 'O') {
+                    sf::Text circle("O", font, 80);
+                    circle.setFillColor(sf::Color::Blue);
+                    circle.setPosition(j * CELL_SIZE + 10, i * CELL_SIZE - 10);
+                    window.draw(circle);
+                }
+            }
+        }
+
+        window.display();
+    }
+};
+
+// Запуск игры
+int main() {
+    setlocale(LC_ALL, "ru_RU.UTF-8");
+    TicTacToe game;
+    game.run();
+    return 0;
+}
